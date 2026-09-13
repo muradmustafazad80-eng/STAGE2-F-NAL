@@ -16,11 +16,16 @@ export async function getScheduleForDate(businessId: string, barberId: string, s
     db.select().from(businessHours).where(and(eq(businessHours.businessId, businessId), eq(businessHours.weekday, zoned.weekday))).limit(1),
     db.select().from(barberSchedules).where(and(eq(barberSchedules.barberId, barberId), eq(barberSchedules.weekday, zoned.weekday))).limit(1),
   ])
-  return { business: { ...businessHour[0], timezone: business.timezone } ?? null, barber: barberSchedule[0] ?? null, timezone: business.timezone }
+      return { 
+    business: businessHour ? { ...businessHour, timezone: business.timezone } : null, 
+    barber: barberSchedule ?? null, 
+    timezone: business.timezone 
+  }
 }
 
 export async function validateBookingWindow(input: { businessId: string; barberId: string; serviceDuration: number; start: Date }) {
   const end = addMinutes(input.start, input.serviceDuration)
+
   const schedule = await getScheduleForDate(input.businessId, input.barberId, input.start)
   if (!schedule.business || !schedule.business.isOpen || !schedule.barber || !schedule.barber.isWorking) return { ok: false as const, reason: 'Bu gün üçün xidmət mümkün deyil.' }
 
