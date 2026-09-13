@@ -5,9 +5,35 @@ import { motion } from 'framer-motion'
 
 type BusinessSettings = Record<string, string>
 
+// Bu günün gününə uyğun real saat aralığını tapan funksiya
+function getTodayHours(value: string) {
+  const parts = value.split(';').map((part) => part.trim()).filter(Boolean)
+  const isSunday = new Date().getDay() === 0
+  const target = isSunday 
+    ? parts.find((part) => part.toLowerCase().includes('bazar') && !part.toLowerCase().includes('şənbə')) 
+    : parts.find((part) => part.toLowerCase().includes('b.e'))
+  
+  return target || value // Əgər parçalana bilməsə mətni bütöv qaytarsın
+}
+
+// Salonun hazırda açıq və ya bağlı olduğunu yoxlayan funksiya
+function isCurrentlyOpen(value: string) {
+  const todayText = getTodayHours(value)
+  const match = todayText.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/)
+  if (!match) return true // Format tapılmasa hər ehtimala açıq göstərsin
+  
+  const now = new Date()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  
+  const [openHour, openMinute] = match[1].split(':').map(Number)
+  const [closeHour, closeMinute] = match[2].split(':').map(Number)
+  
+  return currentMinutes >= (openHour * 60 + openMinute) && currentMinutes < (closeHour * 60 + closeMinute)
+}
+
 export default function WorkingHours() {
   const [settings, setSettings] = useState<BusinessSettings>({})
-  const [isOpen, setIsOpen] = useState(true) // Standart olaraq açıq göstərsin
+  const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
     fetch('/api/business-settings')
@@ -15,12 +41,12 @@ export default function WorkingHours() {
       .then((data) => {
         if (data && typeof data === 'object' && !Array.isArray(data) && !('success' in data)) {
           setSettings(data)
+          setIsOpen(isCurrentlyOpen(data.working_hours || ''))
         }
       })
       .catch(() => setSettings({}))
   }, [])
 
-  // Bazadan gələn mətni birbaşa götürürük, əgər yoxdursa standart saatı yazırıq
   const hours = settings.working_hours || "10:00 - 22:00"
 
   return (
